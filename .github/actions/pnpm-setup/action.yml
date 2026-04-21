@@ -1,0 +1,76 @@
+name: pnpm Setup
+description: Checkout, install pnpm, setup Node with GitHub Packages registry, restore pnpm store cache, and install dependencies.
+
+inputs:
+  pnpm-version:
+    description: pnpm version to install
+    required: false
+    default: '10'
+  node-version:
+    description: Node.js version to use
+    required: false
+    default: '22'
+  install-args:
+    description: Extra arguments passed to pnpm install
+    required: false
+    default: '--frozen-lockfile'
+  node-auth-token:
+    description: Token for authenticating with npm.pkg.github.com
+    required: false
+    default: ''
+  fetch-depth:
+    description: Number of commits to fetch (0 = full history)
+    required: false
+    default: '1'
+  patch-package-json:
+    description: Remove pnpm.overrides entries for @anupheaus/* packages (needed for CI installs that bypass local workspace links)
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ inputs.fetch-depth }}
+        token: ${{ inputs.node-auth-token || github.token }}
+
+    - uses: pnpm/action-setup@v3
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: https://npm.pkg.github.com/
+        scope: '@anupheaus'
+
+    - name: Get pnpm store path
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - name: Restore pnpm store cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: pnpm-store-${{ runner.os }}-
+
+    - name: Patch package.json (remove local workspace overrides)
+      if: inputs.patch-package-json == 'true'
+      shell: bash
+      run: |
+        node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const overrides = pkg?.pnpm?.overrides ?? {};
+          Object.keys(overrides).forEach(k => { if (k.startsWith('@anupheaus/')) delete overrides[k]; });
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+        "
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install ${{ inputs.install-args }} --prefer-offline
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.node-auth-token || github.token }}
