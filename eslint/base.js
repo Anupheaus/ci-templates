@@ -5,8 +5,9 @@
  *   const base = require('../../ci-templates/eslint/base');
  *   module.exports = { ...base, rules: { ...base.rules, /* overrides *\/ } };
  *
- * Or if installed as a local package:
- *   extends: ['@anupheaus/eslint-config']
+ * To add import/no-cycle (circular dep detection), install eslint-plugin-import and add:
+ *   plugins: [...base.plugins, 'import'],
+ *   rules: { ...base.rules, 'import/no-cycle': ['warn', { maxDepth: 5 }] }
  */
 module.exports = {
   parser: '@typescript-eslint/parser',
@@ -14,7 +15,7 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
-  plugins: ['@typescript-eslint/eslint-plugin', 'import'],
+  plugins: ['@typescript-eslint/eslint-plugin'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
@@ -36,6 +37,7 @@ module.exports = {
     'max-classes-per-file': 'error',
     'no-console': 'warn',
     'no-alert': 'warn',
+    'no-unused-labels': 'error',
 
     // Off — handled by TypeScript or @typescript-eslint equivalents
     'sort-imports': 'off',
@@ -54,6 +56,9 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-shadow': 'warn',
+    // Deprecated in typescript-eslint v6 but still fire from 'recommended' in v6 installs
+    '@typescript-eslint/ban-types': 'off',
+    '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/no-unused-vars': [
       'warn',
       {
@@ -83,9 +88,6 @@ module.exports = {
         ],
       },
     ],
-
-    // Circular dependency detection (replaces CircularDependencyPlugin in webpack)
-    'import/no-cycle': ['warn', { maxDepth: 5, ignoreExternal: true }],
   },
   overrides: [
     {
@@ -97,7 +99,6 @@ module.exports = {
       },
     },
     {
-      // Config files use require()
       files: ['*.config.js', '*.config.ts', '.eslintrc.js'],
       rules: {
         '@typescript-eslint/no-var-requires': 'off',
