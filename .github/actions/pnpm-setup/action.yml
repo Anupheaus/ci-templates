@@ -107,7 +107,7 @@ runs:
           echo "::endgroup::"
 
           # Build if dist is gitignored — downstream repos and TypeScript exports resolution need built output
-          if grep -qE "^/?dist$" "$target/.gitignore" 2>/dev/null; then
+          if tr -d '\r' < "$target/.gitignore" 2>/dev/null | grep -qE "^/?dist$"; then
             echo "::group::Building $name"
             pnpm build || echo "Build failed (non-fatal)"
             echo "::endgroup::"
